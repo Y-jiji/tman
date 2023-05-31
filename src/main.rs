@@ -1,13 +1,10 @@
-#![feature(drain_filter)]
-#![feature(btree_drain_filter)]
-
+#![feature(hash_drain_filter)]
 mod data;
-mod view;
 mod util;
+mod view;
+mod algo;
+
+const PATH: &str = "C:/ProgramData/tman/";
 
 fn main() {
-    let mut data = crate::data::Data::load();
-    let mut view = crate::view::View::load(&mut data);
-    view.runapp();
-    data.save();
 }
