@@ -6,12 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-btreemultimap = "0.1.1"
-bytes = {version="1.4.0", features=["serde"]}
 chrono = {version="0.4.24",features=["clock"]}
-crossbeam = "0.8.2"
-crossterm = "0.26.1"
-serde = {version="1.0.163", features=["derive"]}
-serde_arrays = "0.1.0"
-serde_json = "1.0.96"
 tui = "0.19.0"
+crossterm = {version="0.25"}
+serde = {version="1.0.163", features=["derive"]}
+serde_json = "1.0.96"
+unicode-width = "0.1.10"
