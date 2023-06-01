@@ -1,4 +1,5 @@
 #![feature(hash_drain_filter)]
+#![feature(round_char_boundary)]
 
 use view::Switch;
 mod data;
@@ -19,24 +20,29 @@ fn main() {
         Some(x) if x == "edit" => {
             let name = args.get(2).cloned().unwrap_or(String::new());
             Switch::Edit { name }
-        },
+        }
         Some(x) if x == "plan" => {
             Switch::Plan
-        },
+        }
+        Some(x) if x == "calendar" => {
+            Switch::Calendar
+        }
         _ => panic!("You should provide a subcommand like [edit] or [plan]")
     };
     while !matches!(switch, Switch::Exit) {
         switch = match switch {
             Switch::Edit { name } => {
-                let project = data.get_project_by_name(&name).unwrap_or(crate::data::Project::new(name.to_string()));
-                let app = crate::view::EditView::new(project, &mut data);
+                let app = crate::view::EditView::new(name, &mut data);
                 crate::view::run_app(app).unwrap()
             },
             Switch::Plan => {
-                crate::view::Switch::Exit
+                Switch::Exit
             },
             Switch::List => {
-                crate::view::Switch::List
+                Switch::List
+            }
+            Switch::Calendar => {
+                Switch::Exit
             }
             Switch::Exit => unreachable!()
         };

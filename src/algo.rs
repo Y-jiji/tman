@@ -1,4 +1,4 @@
-use crate::data::{Data, Timed, State};
+use crate::data::{Data, Event, State};
 use std::collections::{HashMap, HashSet};
 
 pub struct Schedule {
@@ -9,9 +9,9 @@ pub struct Schedule {
 
 impl Schedule {
     // return quota count
-    pub fn step_day(&mut self) -> (Vec<Timed>, Vec<(usize, usize)>) {
+    pub fn step_day(&mut self) -> (Vec<Event>, Vec<(usize, usize)>) {
         // query the timed items on that day
-        let timed = self.data.get_timed_by_range((self.this_day, self.this_day+24*60*60));
+        let timed = self.data.get_event_by_range((self.this_day, self.this_day+24*60*60));
         // compute consumed projects
         let consumed = timed.iter().map(|x| x.quota).fold(0, |x, y| x + y);
         let available = self.quota_each_day.max(consumed) - consumed;
@@ -43,7 +43,7 @@ impl Schedule {
                 .and_modify(|x| *x += 1)
                 .or_insert(1);
             let mut selected_project = self.data.get_project_by_id(selected_project_id).unwrap();
-            // FIXME: add limit to parent project, ban if parent project is banned
+            // FIXME: also accummulate quota to parent project, ban if parent project is banned
             if project_quota_count[&selected_project_id] == selected_project.limit {
                 ban.insert(selected_project_id);
             }
@@ -58,7 +58,7 @@ impl Schedule {
         (timed, project_quota_count.into_iter().collect())
     }
     // return the final schedule
-    pub fn compute(mut self) -> Vec<(Vec<Timed>, Vec<(usize, usize)>)> {
+    pub fn compute(mut self) -> Vec<(Vec<Event>, Vec<(usize, usize)>)> {
         let mut out = vec![];
         loop {
             let next = self.step_day();

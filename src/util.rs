@@ -2,7 +2,7 @@ use chrono::offset::*;
 
 // get utc minute stamp
 pub fn utc_now() -> i64 {
-    Utc::now().timestamp() as i64 / 60i64
+    Utc::now().timestamp() as i64
 }
 
 // offset from -12 to +12

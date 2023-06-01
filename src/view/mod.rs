@@ -14,11 +14,13 @@ use std::{
 };
 use tui::{backend::CrosstermBackend, Terminal, Frame};
 
+#[derive(Debug, Clone)]
 pub enum Switch {
     Edit{name: String},
     Plan,
     List,
     Exit,
+    Calendar,
 }
 
 pub trait App {
