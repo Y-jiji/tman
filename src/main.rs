@@ -1,13 +1,14 @@
 #![feature(hash_drain_filter)]
 #![feature(round_char_boundary)]
 
-use view::Switch;
 mod data;
 mod util;
 mod view;
 mod algo;
 
 const PATH: &str = "C:/ProgramData/tman";
+
+use view::*;
 
 fn main() {
     let mut data = {
@@ -32,8 +33,7 @@ fn main() {
     while !matches!(switch, Switch::Exit) {
         switch = match switch {
             Switch::Edit { name } => {
-                let app = crate::view::EditView::new(name, &mut data);
-                crate::view::run_app(app).unwrap()
+                run_app(EditView::new(name, &mut data)).unwrap()
             },
             Switch::Plan => {
                 Switch::Exit

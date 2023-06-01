@@ -2,9 +2,9 @@ use crate::data::{Data, Event, State};
 use std::collections::{HashMap, HashSet};
 
 pub struct Schedule {
-    data: Data,
-    this_day: i64,
-    quota_each_day: usize,
+    pub data: Data,
+    pub this_day: i64,
+    pub quota_each_day: usize,
 }
 
 impl Schedule {

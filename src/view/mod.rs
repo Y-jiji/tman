@@ -10,7 +10,6 @@ use crossterm::{
 use std::{
     error::Error,
     io::{self, Stdout},
-    time::{Duration, Instant},
 };
 use tui::{backend::CrosstermBackend, Terminal, Frame};
 
@@ -45,7 +44,7 @@ pub fn run_app(
         if let Event::Key(key) = event::read()? {
             app.on_key_code(key.code);
         }
-        if let Some(switch) = app.quit() { break; }
+        if app.quit().is_some() { break; }
     }
 
     // restore terminal

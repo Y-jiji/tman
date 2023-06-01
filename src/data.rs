@@ -91,9 +91,6 @@ impl Data {
     pub fn new(tz: i64) -> Data {
         Data { tz, projects: vec![Project { name: "root".to_string(), id: 0, ..Default::default() }], ..Default::default() }
     }
-    pub fn projects_count(&self) -> usize {
-        self.projects.len()
-    }
     pub fn active_projects(&self, ban: &HashSet<usize>) -> Vec<usize> {
         (0..self.projects.len()).filter(
             |i| self.projects[*i].state == State::Todo && 

@@ -174,6 +174,7 @@ impl super::App for EditView<'_> {
             Backspace if self.cursor != 0 => { self.command.remove(self.command.floor_char_boundary((self.cursor - 1).min(self.command.len()-1))); self.cursor = self.command.floor_char_boundary(self.cursor.checked_sub(1).unwrap_or(0)); }
             Left => { self.cursor = self.command.floor_char_boundary(self.cursor.checked_sub(1).unwrap_or(0)); }
             Right => { self.cursor = self.command.ceil_char_boundary(usize::min(self.cursor + 1, self.command.len())); }
+            Esc => { self.quit = Some(Switch::Exit) }
             _ => {},
         }
     }
