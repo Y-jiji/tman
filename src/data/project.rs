@@ -101,6 +101,11 @@ impl Data {
                 Err(DataError::IndexError("project name is not unique"))?
             }
             self.project_name_map.insert(new_project.name.clone(), id);
+            if let Some(ddl) = new_project.deadline {
+                self.project_date_map.entry(ddl)
+                    .and_modify(|v| { v.insert(new_project.id()); })
+                    .or_insert(HashSet::from([new_project.id()]));
+            }
             new_project.children.clear();
             new_project.dependencies_reverse.clear();
             let parent = &mut self.projects[new_project.parent];
@@ -135,7 +140,7 @@ impl Data {
                 self.projects[id].clone(),
                 new_project.clone(),
             ));
-            self.project_name_map.insert(new_project.name.clone(), id);
+            // update state recursively
             for c in self.recursive_children(id) {
                 if matches!(self.projects[c].state, State::Todo) {
                     let old = self.projects[c].clone();
@@ -145,8 +150,19 @@ impl Data {
                     self.project_name_map.remove(&self.projects[c].name);
                 }
             }
-            // remove old dependencies and quota
+            // get old project
             let old_project = self.projects[id].clone();
+            // update project name index
+            self.project_name_map.remove(&old_project.name);
+            self.project_name_map.insert(new_project.name.clone(), id);
+            // update project deadline index
+            if let Some(ddl) = old_project.deadline {
+                self.project_date_map.get_mut(&ddl).unwrap().remove(&id);
+            }
+            if let Some(ddl) = new_project.deadline {
+                self.project_date_map.get_mut(&ddl).unwrap().insert(id);
+            }
+            // remove old dependencies and quota
             let old_parent = &mut self.projects[old_project.parent];
             old_parent.children.remove(&id);
             old_parent.quota.0 -= old_project.quota.1;

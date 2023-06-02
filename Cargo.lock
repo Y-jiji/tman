@@ -24,6 +24,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
+name = "btreemultimap"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6786e40464bbcf1d72084fb26dd5f96c10c41c23a6d2f118d8c82870d4aa5447"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -348,6 +357,7 @@ dependencies = [
 name = "tman"
 version = "0.1.0"
 dependencies = [
+ "btreemultimap",
  "chrono",
  "crossterm",
  "serde",

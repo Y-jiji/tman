@@ -15,6 +15,11 @@ pub struct EditView<'a> {
     data: &'a mut crate::data::Data,
 }
 
+fn event_to_string(event: &crate::data::Event, data: &crate::data::Data)
+-> String {
+    todo!()
+}
+
 fn project_to_string(project: &crate::data::Project, data: &crate::data::Data) -> String {
     let dependencies = project.dependencies.iter().map(|x| data.get_project_by_id(*x).unwrap().name)
         .fold(String::new(), |x, y| x + &y + " ");

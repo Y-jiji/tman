@@ -21,6 +21,7 @@ pub struct Data {
     pub tz: i64,
     projects: Vec<Project>,
     project_name_map: HashMap<String, usize>,
+    project_date_map: BTreeMap<i64, HashSet<usize>>,
     event: Vec<Event>,
     event_name_map: HashMap<String, usize>,
     event_time_map: BTreeMap<i64, HashSet<usize>>,
@@ -38,9 +39,11 @@ pub enum DataError {
 }
 
 impl Data {
+    // new data with given time zone
     pub fn new(tz: i64) -> Data {
         Data { tz, projects: vec![Project { name: "root".to_string(), id: 0, ..Default::default() }], ..Default::default() }
     }
+    // data compaction by pruning old data
     pub fn compact(&self) -> Data {
         todo!()
     }
