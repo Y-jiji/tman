@@ -18,6 +18,8 @@ pub struct Project {
     pub dependencies: HashSet<usize>,
     // state
     pub state: State,
+    // color
+    pub color: (u8, u8, u8),
     // children ids
     pub(super) children: HashSet<usize>,
     // dependencies reversed

@@ -7,6 +7,7 @@ pub struct Event {
     pub time: i64,
     pub state: State,
     pub quota: usize,
+    pub color: (u8, u8, u8),
 }
 
 impl Data {

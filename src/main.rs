@@ -12,9 +12,10 @@ use view::*;
 fn main() {
     let mut data = {
         let stringified_data = std::fs::read_to_string(format!("{PATH}/latest.json")).unwrap_or(String::new());
+        let stamp = crate::util::utc_now();
+        std::fs::copy(format!("{PATH}/latest.json"), format!("{PATH}/{stamp}.json")).unwrap_or(0);
         serde_json::from_str(&stringified_data).unwrap_or(crate::data::Data::new(0))
     };
-    let stamp = crate::util::utc_now();
     let args = std::env::args().collect::<Vec<_>>();
     let mut switch = match args.get(1).as_deref() {
         Some(x) if x == "edit" => {
@@ -46,6 +47,5 @@ fn main() {
             Switch::Exit => unreachable!()
         };
     }
-    std::fs::copy(format!("{PATH}/latest.json"), format!("{PATH}/{stamp}.json")).unwrap_or(0);
     std::fs::write(format!("{PATH}/latest.json"), serde_json::to_string(&data).unwrap()).unwrap();
 }

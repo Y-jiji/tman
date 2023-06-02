@@ -4,6 +4,7 @@ use tui::text::*;
 use tui::style::*;
 use unicode_width::UnicodeWidthStr;
 use super::Switch;
+use std::io::Read;
 
 pub struct EditView<'a> {
     quit: Option<Switch>,
@@ -18,15 +19,16 @@ fn project_to_string(project: &crate::data::Project, data: &crate::data::Data) -
     let dependencies = project.dependencies.iter().map(|x| data.get_project_by_id(*x).unwrap().name)
         .fold(String::new(), |x, y| x + &y + " ");
     let deadline = project.deadline.map(|x| chrono::NaiveDateTime::from_timestamp_opt(crate::util::conv_utc_loc(x, data.tz), 0).unwrap().format("%Y/%m/%d %H:%M").to_string()).unwrap_or("None".to_string());
-format!("
-name            {}
+format!(
+"name            {}
 quota           {} {}
 limit           {}
 deadline        {}
 dependencies    {}
 parent          {}
 state           {:?}
-", project.name, project.quota.0, project.quota.1, project.limit, deadline, dependencies, data.get_project_by_id(project.parent).unwrap().name, project.state)
+color           {:06x}"
+, project.name, project.quota.0, project.quota.1, project.limit, deadline, dependencies, data.get_project_by_id(project.parent).unwrap().name, project.state, 256*(256*project.color.0 as u32+project.color.1 as u32)+project.color.2 as u32)
 }
 
 impl<'a> EditView<'a> {
@@ -58,6 +60,15 @@ impl<'a> EditView<'a> {
                 } else {
                     self.information_window.push_str("save failed\n");
                     self.information_window.push_str(&format!("{res:?}"));
+                }
+            }
+            Some("color") | Some("c") if args.get(1).is_some() => {
+                if let Ok(color) = u32::from_str_radix(args[1], 16) {
+                    self.project.color = (
+                        (color / (256*256) % 256) as u8, 
+                        (color / 256 % 256) as u8, 
+                        (color % 256) as u8
+                    );
                 }
             }
             Some("name") | Some("n") if args.get(1).is_some() => {
@@ -156,10 +167,16 @@ impl super::App for EditView<'_> {
         let area_command = _tmp[0];
         let _tmp = Layout::default().direction(Direction::Horizontal).constraints([Constraint::Percentage(50), Constraint::Percentage(40)]).margin(1).split(_tmp[1]);
         let area_main = _tmp[0];
+        let color = self.project.color.clone();
         let area_info = _tmp[1];
         let command_widget = Paragraph::new(Text::raw(self.command.clone())).block(Block::default().borders(Borders::all()).title(" Command "));
         let information_widget = Paragraph::new(Text::raw(self.information_window.clone())).style(Style::default()).block(Block::default().borders(Borders::all()).title(" Information "));
-        let main_editor_widget = Paragraph::new(Text::raw(project_to_string(&self.project, &self.data))).block(Block::default().borders(Borders::all()).title(" Editing "));
+        let main_editor_content = project_to_string(&self.project, &self.data);
+        let main_editor_widget = Paragraph::new(Text::from(
+            main_editor_content.split('\n').map(Spans::from)
+            .chain([Spans::from(vec![Span::styled(" ".repeat(22), Style::default().bg(Color::Rgb(color.0, color.1, color.2)))])])
+            .collect::<Vec<_>>()
+        )).block(Block::default().borders(Borders::all()).title(" Editing "));
         f.render_widget(command_widget, area_command);
         f.render_widget(information_widget, area_info);
         f.render_widget(main_editor_widget, area_main);
