@@ -1,3 +1,4 @@
+#![feature(pattern)]
 #![feature(hash_drain_filter)]
 #![feature(round_char_boundary)]
 
@@ -5,8 +6,10 @@ mod data;
 mod util;
 mod view;
 
+#[cfg(not(profile="release"))]
+const PATH: &str = "./tmp";
+#[cfg(profile="release")]
 const PATH: &str = "C:/ProgramData/tman";
-
 use view::*;
 
 fn main() {
@@ -25,7 +28,7 @@ fn main() {
         Some(x) if x == "plan" => {
             Switch::Plan
         }
-        Some(x) if x == "calendar" => {
+        Some(x) if x == "calendar" || x == "cal" => {
             Switch::Calendar
         }
         _ => panic!("You should provide a subcommand like [edit] or [plan]")
@@ -34,14 +37,14 @@ fn main() {
         switch = match switch {
             Switch::Edit { name } => {
                 run_app(EditView::new(name, &mut data)).unwrap()
-            },
-            Switch::Plan => {
-                Switch::Exit
-            },
-            Switch::List => {
-                Switch::List
             }
             Switch::Calendar => {
+                run_app(CalendarMonthView::new(&mut data)).unwrap()
+            }
+            Switch::Plan => {
+                Switch::Exit
+            }
+            Switch::List => {
                 Switch::Exit
             }
             Switch::Exit => unreachable!()

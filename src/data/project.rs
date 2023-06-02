@@ -82,6 +82,11 @@ impl Data {
     pub fn get_project_by_id(&self, id: usize) -> Result<Project, DataError> {
         self.projects.get(id).ok_or(DataError::NoSuchProject).cloned()
     }
+    pub fn get_project_by_time_range(&self, time_range: (i64, i64)) -> Vec<usize> {
+        self.project_date_map.range(time_range.0..time_range.1)
+        .flat_map(|x| x.1.iter().map(|x| *x))
+        .collect()
+    }
     // insert or update a new project
     pub fn upsert_project(&mut self, mut new_project: Project) -> Result<(), DataError> {
         let mut id = new_project.id;
@@ -160,7 +165,9 @@ impl Data {
                 self.project_date_map.get_mut(&ddl).unwrap().remove(&id);
             }
             if let Some(ddl) = new_project.deadline {
-                self.project_date_map.get_mut(&ddl).unwrap().insert(id);
+                self.project_date_map.entry(ddl)
+                    .and_modify(|v| { v.insert(new_project.id()); })
+                    .or_insert(HashSet::from([new_project.id()]));
             }
             // remove old dependencies and quota
             let old_parent = &mut self.projects[old_project.parent];

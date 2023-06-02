@@ -4,13 +4,12 @@ use tui::text::*;
 use tui::style::*;
 use unicode_width::UnicodeWidthStr;
 use super::Switch;
-use std::io::Read;
 
 pub struct EditView<'a> {
     quit: Option<Switch>,
     cursor: usize,
-    project: crate::data::Project,
     command: String,
+    project: crate::data::Project,
     information_window: String,
     data: &'a mut crate::data::Data,
 }
@@ -56,6 +55,9 @@ impl<'a> EditView<'a> {
             }
             Some("edit") if args.get(1).is_some() => {
                 self.quit = Some(Switch::Edit { name: args[1].to_string() });
+            }
+            Some("cal") | Some("calendar") => {
+                self.quit = Some(Switch::Calendar);
             }
             Some("save") | Some("s") => {
                 self.information_window.clear();
