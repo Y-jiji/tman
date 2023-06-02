@@ -4,7 +4,6 @@ use tui::text::*;
 use tui::style::*;
 use unicode_width::UnicodeWidthStr;
 use super::Switch;
-use crate::data::Project;
 
 pub struct EditView<'a> {
     quit: Option<Switch>,
@@ -107,7 +106,7 @@ impl<'a> EditView<'a> {
                     self.project.quota.1 = quota;
                 }
             }
-            Some("abort") => {
+            Some("abort") if args.get(1).is_some() && args[1] == self.project.name => {
                 self.project.state = crate::data::State::Abort;
             },
             Some("finish") | Some("f") if args.get(1).is_some() => {
