@@ -10,6 +10,7 @@ struct TreeNode {
 }
 
 impl TreeNode {
+    // allocate quota to everyday project
     fn allocate(&self, mut today_quota: usize) -> Vec<(usize, usize)> {
         assert!(today_quota <= self.rest_quota);
         if self.ch.is_empty() { return vec![(self.id, today_quota)] }
@@ -32,7 +33,10 @@ impl TreeNode {
 }
 
 impl super::Data {
-    fn create_activity_tree(&self, id: usize, count: &Vec<usize>, rest_quota: &Vec<usize>, now: i64) -> TreeNode {
+    fn create_activity_tree(
+        &self, id: usize, count: &Vec<usize>, 
+        rest_quota: &Vec<usize>, now: i64
+    ) -> TreeNode {
         let mut ch = self.projects[id].children.iter()
             .filter(|&&id| count[id] == 0 && 
                 self.projects[id].deadline.map(|d| d >= now).unwrap_or(true))
@@ -55,7 +59,9 @@ impl super::Data {
         };
         // count project reverse dependencies
         let mut count = self.projects.iter().map(
-            |p| p.dependencies_reverse.len() + if p.parent != 0 { 1 } else { 0 }).collect::<Vec<_>>();
+            |p| p.dependencies_reverse.len() + 
+            if p.parent != 0 { 1 } else { 0 }
+        ).collect::<Vec<_>>();
         // iterate and collect project dependencies
         let deps = self.projects.iter().map(|p| {
             let mut dep = p.children.clone();
@@ -75,9 +81,10 @@ impl super::Data {
         // the final schedule
         let mut output = VecDeque::new();
         while day_now >= day_sta {
-            // allocate time along the tree
+            // allocate time along current tree
             let mut today_quota = quota_each_day - self.get_event_by_range((day_now, day_now+24*60*60)).into_iter().fold(0, |x, y| x + y.quota).min(quota_each_day);
             let mut today_schedule = vec![];
+            // allocate time along current tree
             while today_quota != 0 && activity_tree.rest_quota != 0 {
                 let new_schedule = if today_quota <= activity_tree.rest_quota {
                     activity_tree.allocate(std::mem::replace(&mut today_quota, 0))
