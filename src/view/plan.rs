@@ -62,6 +62,7 @@ impl<'a> AutoScheduleView<'a> {
     fn get_week_schedule(&self, year: i32, week: u32, width: usize) -> [Text; 7] {
         use chrono::*;
         // get text for each week
+        let width = width - 4;
         let start = NaiveDate::from_isoywd_opt(year, week, Weekday::Mon)
             .unwrap().pred_opt()
             .unwrap().and_hms_opt(0, 0, 0)
@@ -76,8 +77,14 @@ impl<'a> AutoScheduleView<'a> {
                     .get_event_by_range((start + i*24*60*60, start + (i+1)*24*60*60))
                     .into_iter().map(|event| {
                         let amount = format!("{}", event.quota);
-                        let width = width.max(amount.width() + 10) - amount.width() - 10;
-                        let content = format!("{:<width$} {amount}", event.name);
+                        let mut name = event.name.clone();
+                        let mut width_0 = name.width();
+                        let width_1 = amount.width();
+                        while width_0 + width_1 + 1 > width {
+                            name.pop();
+                            width_0 = name.width();
+                        }
+                        let content = format!("{name}{}{amount}", " ".repeat(width - width_0 - width_1));
                         let color = event.color;
                         let light = if color.0/3 + color.1/3 + color.2/3 > 85 
                             { 0 } else { 255 };
@@ -91,9 +98,15 @@ impl<'a> AutoScheduleView<'a> {
                     .iter()
                     .map(|&(i, amount)| {
                         let project = self.data.get_project_by_id(i).unwrap();
-                        let amount = format!("{amount}");
-                        let width = width.max(amount.width() + 10) - amount.width() - 10;
-                        let content = format!("{:<width$} {amount}", project.name);
+                        let amount = format!("{}", amount);
+                        let mut name = project.name.clone();
+                        let mut width_0 = name.width();
+                        let width_1 = amount.width();
+                        while width_0 + width_1 + 1 > width {
+                            name.pop();
+                            width_0 = name.width();
+                        }
+                        let content = format!("{name}{}{amount}", " ".repeat(width - width_0 - width_1));
                         let color = project.color;
                         let light = if color.0/3 + color.1/3 + color.2/3 > 85 
                             { 0 } else { 255 };
