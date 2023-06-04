@@ -41,7 +41,7 @@ pub enum DataError {
 impl Data {
     // new data with given time zone
     pub fn new(tz: i64) -> Data {
-        Data { tz, projects: vec![Project { name: "root".to_string(), id: 0, ..Default::default() }], ..Default::default() }
+        Data { tz, projects: vec![Project { name: "root".to_string(), id: 0, weight: 24, ..Default::default() }], ..Default::default() }
     }
     // data compaction by pruning old data
     pub fn compact(&self) -> Data {

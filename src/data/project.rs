@@ -6,8 +6,8 @@ pub struct Project {
     pub(super) id: usize,
     // project name
     pub name: String,
-    // quota limit for each day
-    pub limit: usize,
+    // quota weight for each day
+    pub weight: usize,
     // allocated and estimated quota for this project
     pub quota: (usize, usize),
     // deadline, if there is any
@@ -43,7 +43,7 @@ impl Project {
         Project {
             name,
             id: usize::MAX,
-            limit: usize::MAX,
+            weight: 100,
             ..Default::default()
         }
     }
@@ -88,7 +88,8 @@ impl Data {
         .collect()
     }
     // insert or update a new project
-    pub fn upsert_project(&mut self, mut new_project: Project) -> Result<(), DataError> {
+    pub fn upsert_project(&mut self, new_project: &Project) -> Result<Project, DataError> {
+        let mut new_project = new_project.clone();
         let mut id = new_project.id;
         if new_project.parent >= self.projects.len() {
             Err(DataError::InvalidId)?
@@ -123,8 +124,8 @@ impl Data {
             for d in &new_project.dependencies {
                 self.projects[*d].dependencies_reverse.insert(id);
             }
-            self.projects.push(new_project);
-            Ok(())
+            self.projects.push(new_project.clone());
+            Ok(new_project)
         } else {
             if self.projects[id].name != new_project.name {
                 if self.project_name_map.contains_key(&new_project.name) {
@@ -187,8 +188,8 @@ impl Data {
             for d in &new_project.dependencies {
                 self.projects[*d].dependencies_reverse.remove(&d);
             }
-            self.projects[id] = new_project;
-            Ok(())
+            self.projects[id] = new_project.clone();
+            Ok(new_project)
         }
     }
 }

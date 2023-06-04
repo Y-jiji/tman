@@ -1,16 +1,13 @@
 use tui::layout::*;
 use tui::widgets::*;
 use tui::text::*;
-use unicode_width::UnicodeWidthStr;
 use super::Switch;
 use chrono::Datelike;
 use tui::style::*;
 use chrono::Weekday;
-use std::str::pattern::Pattern;
 
 pub struct CalendarMonthView<'a> {
-    cursor: usize,
-    command: String,
+    command: super::Command,
     year_and_month: (i32, u32),
     // month, date, name, color
     days: Vec<((u32, u32), Vec<(String, (u8, u8, u8))>)>,
@@ -24,7 +21,7 @@ impl<'a> CalendarMonthView<'a> {
         let now = crate::util::conv_utc_loc(crate::util::utc_now(), data.tz);
         let now = chrono::NaiveDateTime::from_timestamp_opt(now, 0).unwrap();
         let (year, month) = (now.year(), now.month());
-        let mut out = Self { cursor: 0, command: String::new(), year_and_month: (year, month), days: vec![], data, quit: None };
+        let mut out = Self { command: super::Command::new(), year_and_month: (year, month), days: vec![], data, quit: None };
         out.refresh_items();
         return out;
     }
@@ -59,29 +56,15 @@ impl<'a> CalendarMonthView<'a> {
                         e.name.clone(), e.color
                     )
                 })).collect::<Vec<_>>();
-            // use std::io::Write;
-            // let mut logger = std::fs::OpenOptions::new().create(true).append(true).open("logger").unwrap();
-            // writeln!(&mut logger, "{current_day_start}:{current_day_end}\n\t{today_items:?}").unwrap();
             days.push(((current_day.month(), current_day.day()), today_items));
             current_day = current_day.succ_opt().unwrap();
         }
         self.days = days;
     }
     pub fn trigger_command(&mut self) {
-        let args_string = self.command.clone();
-        self.command = String::new();
-        self.cursor = 0;
+        let args_string = self.command.get_command();
         let args = args_string.trim().split_whitespace().collect::<Vec<_>>();
         match args.get(0).map(|x| x as &str) {
-            Some("exit") => {
-                self.quit = Some(Switch::Exit);
-            }
-            Some("edit") if args.get(1).is_some() => {
-                self.quit = Some(Switch::Edit { name: args[1].to_string() });
-            }
-            Some("cal") | Some("calendar") => {
-                self.quit = Some(Switch::Calendar);
-            }
             Some("go") if args.get(1).is_some() => {
                 let mut arg1 = args[1].trim().split("/");
                 let (year, month) = (arg1.next(), arg1.next().map(|x| x.chars().skip_while(|x| *x == '0').collect()));
@@ -105,55 +88,44 @@ impl<'a> CalendarMonthView<'a> {
     }
 }
 
-fn perfect_split(rect: Rect, grid: (u16, u16)) -> Vec<Vec<Rect>> {
-    let (width, height) = (rect.width, rect.height);
-    let width_rest_left = (width % grid.0) / 2;
-    let width_rest_right = (width % grid.1 + 1) / 2;
-    let height_rest_top = (height % grid.1 + 1) / 2;
-    let height_rest_bottom = (height % grid.1) / 2;
-    let mut width_split = vec![Constraint::Length(width_rest_left)];
-    width_split.extend(vec![Constraint::Length(width / grid.0); grid.0 as usize].into_iter());
-    width_split.push(Constraint::Length(width_rest_right));
-    let mut height_split = vec![Constraint::Length(height_rest_top)];
-    height_split.extend(vec![Constraint::Length(height / grid.1); grid.0 as usize].into_iter());
-    height_split.push(Constraint::Length(height_rest_bottom));
-    let mut out = vec![];
-    for chunk in Layout::default().direction(tui::layout::Direction::Vertical).constraints(height_split).split(rect).into_iter().skip(1).take(grid.1 as usize) {
-        let mut row = vec![];
-        for chunk in Layout::default().direction(tui::layout::Direction::Horizontal).constraints(width_split.clone()).split(chunk).into_iter().skip(1).take(grid.0 as usize) {
-            row.push(chunk);
-        }
-        out.push(row);
-    }
-    return out;
-}
-
 impl<'a> super::App for CalendarMonthView<'a> {
     fn draw(&self, f: &mut tui::Frame<tui::backend::CrosstermBackend<std::io::Stdout>>) {
         let area = f.size();
-        let _tmp = Layout::default().direction(Direction::Vertical).constraints([Constraint::Length(4), Constraint::Min(4)]).split(area);
-        let area_command = _tmp[0];
-        let command_widget = Paragraph::new(Text::raw(self.command.clone())).block(Block::default().borders(Borders::all()).title(" Command "));
-        f.render_widget(command_widget, area_command);
+        // split frame to upper and lower half
+        let _tmp = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(4), Constraint::Min(4)])
+            .split(area);
         let grid = (7 as u16, (self.days.len()/7) as u16);
-        for (i, block) in perfect_split(_tmp[1], grid).into_iter().flat_map(|x| x).enumerate() {
-            let date_as_header = Spans::from(Span::raw(format!("{}/{}", self.days[i].0.0, self.days[i].0.1)));
-            let day_items = self.days[i].1.iter().map(|(name, color)| Spans::from(Span::styled(format!("{name:<16}"), Style::default().bg(Color::Rgb(color.0, color.1, color.2)).fg(Color::Rgb(!color.0, !color.1, !color.2)))));
-            let text = Text::from([date_as_header].into_iter().chain(day_items).collect::<Vec<_>>());
-            f.render_widget(Paragraph::new(text).alignment(Alignment::Center).block(Block::default().borders(Borders::all())), block);
+        let grid = crate::util::perfect_split(_tmp[1], grid).into_iter().flat_map(|x| x).enumerate();
+        // render days into grid
+        for (i, grid) in grid {
+            let width = (grid.width - 2) as usize;
+            let today = self.days[i].1.iter()
+                .map(|(name, color)| Span::styled(format!("{name:<width$}"), 
+                    Style::default().bg(Color::Rgb(color.0, color.1, color.2))
+                )).map(Spans::from);
+            let today = Text::from(today.collect::<Vec<_>>());
+            let title = {
+                let weekday = match i {
+                    0 => "Sun ", 1 => "Mon ", 2 => "Tue ", 3 => "Wed ", 
+                    4 => "Thu ", 5 => "Fri ", 6 => "Sat ", _ => "", 
+                };
+                Block::default()
+                .borders(Borders::all())
+                .title(format!("{weekday}{}/{}", self.days[i].0.0, self.days[i].0.1))
+                .title_alignment(Alignment::Center)
+            };
+            f.render_widget(Paragraph::new(today).block(title), grid);
         }
-        f.set_cursor(area_command.x + self.command.get(..self.cursor).unwrap().width() as u16 + 1, area_command.y + 1);
+        self.command.draw(f, _tmp[0]);
     }
-    fn on_key_code(&mut self, key_code: crossterm::event::KeyCode) -> () {
-        use crossterm::event::KeyCode::*;
-        match key_code {
-            Char(c) => { self.command.insert(self.cursor, c); self.cursor = self.command.ceil_char_boundary(usize::min(self.cursor + 1, self.command.len())); }
-            Enter => { self.trigger_command(); }
-            Backspace if self.cursor != 0 => { self.command.remove(self.command.floor_char_boundary((self.cursor - 1).min(self.command.len()-1))); self.cursor = self.command.floor_char_boundary(self.cursor.checked_sub(1).unwrap_or(0)); }
-            Left => { self.cursor = self.command.floor_char_boundary(self.cursor.checked_sub(1).unwrap_or(0)); }
-            Right => { self.cursor = self.command.ceil_char_boundary(usize::min(self.cursor + 1, self.command.len())); }
-            Esc => { self.quit = Some(Switch::Exit) }
-            _ => {},
+    fn on_key_code(&mut self, key_code: crossterm::event::KeyCode) {
+        let trigger = self.command.on_key_code(key_code);
+        if !trigger { return }
+        match self.command.try_switch() {
+            Some(q) => self.quit = Some(q),
+            None => self.trigger_command()
         }
     }
     fn quit(&self) -> Option<Switch> {

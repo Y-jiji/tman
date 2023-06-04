@@ -7,8 +7,7 @@ use super::Switch;
 
 pub struct EditView<'a> {
     quit: Option<Switch>,
-    cursor: usize,
-    command: String,
+    command: super::Command,
     project: crate::data::Project,
     information_window: String,
     data: &'a mut crate::data::Data,
@@ -26,13 +25,13 @@ fn project_to_string(project: &crate::data::Project, data: &crate::data::Data) -
 format!(
 "name            {}
 quota           {} {}
-limit           {}
+weight          {}
 deadline        {}
 dependencies    {}
 parent          {}
 state           {:?}
 color           {:06x}"
-, project.name, project.quota.0, project.quota.1, project.limit, deadline, dependencies, data.get_project_by_id(project.parent).unwrap().name, project.state, 256*(256*project.color.0 as u32+project.color.1 as u32)+project.color.2 as u32)
+, project.name, project.quota.0, project.quota.1, project.weight, deadline, dependencies, data.get_project_by_id(project.parent).unwrap().name, project.state, 256*(256*project.color.0 as u32+project.color.1 as u32)+project.color.2 as u32)
 }
 
 impl<'a> EditView<'a> {
@@ -40,34 +39,24 @@ impl<'a> EditView<'a> {
         let project = data.get_project_by_name(&name);
         let information_window = if project.is_ok() { String::new() } else { format!("create new project {name}") };
         let project = project.unwrap_or(crate::data::Project::new(name.to_string()));
-        Self {quit: None, project, command: String::new(), information_window, data, cursor: 0, }
+        Self {quit: None, project, command: super::Command::new(), information_window, data}
     }
     fn trigger_command(&mut self) {
-        let args_string = self.command.clone();
-        self.command = String::new();
-        self.cursor = 0;
+        let args_string = self.command.get_command();
         let args = args_string.trim().split_whitespace().collect::<Vec<_>>();
         self.information_window.clear();
         match args.get(0).map(|x| x as &str) {
-            Some("exit") => {
-                self.quit = Some(Switch::Exit);
-                self.information_window.push_str("exit");
-            }
-            Some("edit") if args.get(1).is_some() => {
-                self.quit = Some(Switch::Edit { name: args[1].to_string() });
-            }
-            Some("cal") | Some("calendar") => {
-                self.quit = Some(Switch::Calendar);
-            }
             Some("save") | Some("s") => {
                 self.information_window.clear();
-                let res = self.data.upsert_project(self.project.clone());
-                if res.is_ok() {
+                match self.data.upsert_project(&self.project) {
+                Ok(project) => {
+                    self.project = project;
                     self.information_window.push_str("save ok");
-                } else {
-                    self.information_window.push_str("save failed\n");
-                    self.information_window.push_str(&format!("{res:?}"));
                 }
+                Err(e) => {
+                    self.information_window.push_str("save failed\n");
+                    self.information_window.push_str(&format!("{e:?}"));
+                }}
             }
             Some("color") | Some("c") if args.get(1).is_some() => {
                 if let Ok(color) = u32::from_str_radix(args[1], 16) {
@@ -85,37 +74,49 @@ impl<'a> EditView<'a> {
                     self.information_window = format!("Project {} exists", args[1]);
                 }
             }
-            Some("limit") | Some("lim") if args.get(1).is_some() && args[1].parse::<usize>().is_ok() => {
-                self.project.limit = args[1].parse().unwrap();
+            Some("weight") | Some("wei") | Some("w") 
+                if args.get(1).is_some() && args[1].parse::<usize>().is_ok() 
+            => {
+                self.project.weight = args[1].parse().unwrap();
             }
-            Some("parent") | Some("p") if args.get(1).is_some() => {
+            Some("parent") | Some("p") if args.get(1).is_some() 
+            => {
                 let parent = self.data.get_project_by_name(args[1]);
                 if let Ok(parent) = parent {
                     self.project.parent = parent.id();
                 }
             }
-            Some("dependencies") | Some("dep") | Some("d") if args.get(1).is_some() && args[1].starts_with("+") => {
-                let dependency = self.data.get_project_by_name(args[1].strip_prefix("+").unwrap());
+            Some("dependencies") | Some("dep") | Some("d") 
+                if args.get(1).is_some() && args[1].starts_with("+") 
+            => {
+                let dependency = self.data.get_project_by_name(
+                    args[1].strip_prefix("+").unwrap());
                 if let Ok(dependency) = dependency {
                     self.project.dependencies.insert(dependency.id());
                 }
             }
-            Some("dependencies") | Some("dep") | Some("d") if args.get(1).is_some() && args[1].starts_with("-") => {
-                let dependency = self.data.get_project_by_name(args[1].strip_prefix("-").unwrap());
+            Some("dependencies") | Some("dep") | Some("d") 
+                if args.get(1).is_some() && args[1].starts_with("-") 
+            => {
+                let dependency = self.data.get_project_by_name(
+                    args[1].strip_prefix("-").unwrap());
                 if let Ok(dependency) = dependency {
                     self.project.dependencies.remove(&dependency.id());
                 }
             }
-            Some("quota") | Some("q") if args.get(1).is_some() && args[1].starts_with("+") => {
+            Some("quota") | Some("q") if args.get(1).is_some() && args[1].starts_with("+") 
+            => {
                 let delta = args[1].strip_prefix("+").unwrap().parse::<usize>();
                 if let Ok(quota)= delta {
                     self.project.quota.1 += quota;
                 }
             }
-            Some("quota") | Some("q") if args.get(1).is_some() && args[1].starts_with("-") => {
+            Some("quota") | Some("q") if args.get(1).is_some() && args[1].starts_with("-") 
+            => {
                 let delta = args[1].strip_prefix("-").unwrap().parse::<usize>();
                 if let Ok(quota) = delta {
-                    self.project.quota.1 = self.project.quota.1.checked_sub(quota).unwrap_or(0);
+                    self.project.quota.1 = 
+                        self.project.quota.1.checked_sub(quota).unwrap_or(0);
                 }
             }
             Some("quota") | Some("q") if args.get(1).is_some() => {
@@ -170,13 +171,13 @@ impl<'a> EditView<'a> {
 impl super::App for EditView<'_> {
     fn draw(&self, f: &mut tui::Frame<tui::backend::CrosstermBackend<std::io::Stdout>>) {
         let area = f.size();
-        let _tmp = Layout::default().direction(Direction::Vertical).constraints([Constraint::Length(4), Constraint::Min(4)]).split(area);
-        let area_command = _tmp[0];
-        let _tmp = Layout::default().direction(Direction::Horizontal).constraints([Constraint::Percentage(50), Constraint::Percentage(40)]).margin(1).split(_tmp[1]);
+        let _tmp = Layout::default().direction(Direction::Vertical)
+            .constraints([Constraint::Length(4), Constraint::Min(4)]).split(area);
+        let _tmp = Layout::default().direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(40)]).margin(1).split(_tmp[1]);
         let area_main = _tmp[0];
         let color = self.project.color.clone();
         let area_info = _tmp[1];
-        let command_widget = Paragraph::new(Text::raw(self.command.clone())).block(Block::default().borders(Borders::all()).title(" Command "));
         let information_widget = Paragraph::new(Text::raw(self.information_window.clone())).style(Style::default()).block(Block::default().borders(Borders::all()).title(" Information "));
         let main_editor_content = project_to_string(&self.project, &self.data);
         let main_editor_widget = Paragraph::new(Text::from(
@@ -184,21 +185,16 @@ impl super::App for EditView<'_> {
             .chain([Spans::from(vec![Span::styled(" ".repeat(22), Style::default().bg(Color::Rgb(color.0, color.1, color.2)))])])
             .collect::<Vec<_>>()
         )).block(Block::default().borders(Borders::all()).title(" Editing "));
-        f.render_widget(command_widget, area_command);
         f.render_widget(information_widget, area_info);
         f.render_widget(main_editor_widget, area_main);
-        f.set_cursor(area_command.x + self.command.get(..self.cursor).unwrap().width() as u16 + 1, area_command.y + 1);
+        self.command.draw(f, _tmp[0]);
     }
     fn on_key_code(&mut self, key_code: crossterm::event::KeyCode) {
-        use crossterm::event::KeyCode::*;
-        match key_code {
-            Char(c) => { self.command.insert(self.cursor, c); self.cursor = self.command.ceil_char_boundary(usize::min(self.cursor + 1, self.command.len())); }
-            Enter => { self.trigger_command(); }
-            Backspace if self.cursor != 0 => { self.command.remove(self.command.floor_char_boundary((self.cursor - 1).min(self.command.len()-1))); self.cursor = self.command.floor_char_boundary(self.cursor.checked_sub(1).unwrap_or(0)); }
-            Left => { self.cursor = self.command.floor_char_boundary(self.cursor.checked_sub(1).unwrap_or(0)); }
-            Right => { self.cursor = self.command.ceil_char_boundary(usize::min(self.cursor + 1, self.command.len())); }
-            Esc => { self.quit = Some(Switch::Exit) }
-            _ => {},
+        let trigger = self.command.on_key_code(key_code);
+        if !trigger { return }
+        match self.command.try_switch() {
+            Some(q) => self.quit = Some(q),
+            None => self.trigger_command()
         }
     }
     fn quit(&self) -> Option<super::Switch> {

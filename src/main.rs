@@ -6,9 +6,9 @@ mod data;
 mod util;
 mod view;
 
-#[cfg(not(profile="release"))]
+#[cfg(debug_assertions)]
 const PATH: &str = "./tmp";
-#[cfg(profile="release")]
+#[cfg(not(debug_assertions))]
 const PATH: &str = "C:/ProgramData/tman";
 use view::*;
 
@@ -25,11 +25,11 @@ fn main() {
             let name = args.get(2).cloned().unwrap_or(String::new());
             Switch::Edit { name }
         }
-        Some(x) if x == "plan" => {
-            Switch::Plan
-        }
         Some(x) if x == "calendar" || x == "cal" => {
             Switch::Calendar
+        }
+        Some(x) if x == "plan" => {
+            Switch::Plan
         }
         _ => panic!("You should provide a subcommand like [edit] or [plan]")
     };
@@ -42,7 +42,7 @@ fn main() {
                 run_app(CalendarMonthView::new(&mut data)).unwrap()
             }
             Switch::Plan => {
-                Switch::Exit
+                run_app(AutoScheduleView::new(&mut data)).unwrap()
             }
             Switch::List => {
                 Switch::Exit
@@ -50,5 +50,8 @@ fn main() {
             Switch::Exit => unreachable!()
         };
     }
-    std::fs::write(format!("{PATH}/latest.json"), serde_json::to_string(&data).unwrap()).unwrap();
+    std::fs::write(
+        format!("{PATH}/latest.json"), 
+        serde_json::to_string(&data).unwrap()
+    ).unwrap();
 }

@@ -2,6 +2,10 @@ mod edit;
 pub use edit::EditView;
 mod calendar;
 pub use calendar::CalendarMonthView;
+mod plan;
+pub use plan::AutoScheduleView;
+mod command;
+pub use command::Command;
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
