@@ -49,14 +49,15 @@ impl<'a> EditView<'a> {
             Some("save") | Some("s") => {
                 self.information_window.clear();
                 match self.data.upsert_project(&self.project) {
-                Ok(project) => {
-                    self.project = project;
-                    self.information_window.push_str("save ok");
+                    Ok(project) => {
+                        self.project = project;
+                        self.information_window.push_str("save ok");
+                    }
+                    Err(e) => {
+                        self.information_window.push_str("save failed\n");
+                        self.information_window.push_str(&format!("{e:?}"));
+                    }
                 }
-                Err(e) => {
-                    self.information_window.push_str("save failed\n");
-                    self.information_window.push_str(&format!("{e:?}"));
-                }}
             }
             Some("color") | Some("c") if args.get(1).is_some() => {
                 if let Ok(color) = u32::from_str_radix(args[1], 16) {
@@ -127,7 +128,7 @@ impl<'a> EditView<'a> {
             }
             Some("abort") if args.get(1).is_some() && args[1] == self.project.name => {
                 self.project.state = crate::data::State::Abort;
-            },
+            }
             Some("finish") | Some("f") if args.get(1).is_some() => {
                 self.project.quota.0 += args[1].parse::<usize>().unwrap_or(0);
                 self.project.quota.1 = self.project.quota.1.max(self.project.quota.0);
@@ -173,21 +174,30 @@ impl super::App for EditView<'_> {
         let area = f.size();
         let _tmp = Layout::default().direction(Direction::Vertical)
             .constraints([Constraint::Length(4), Constraint::Min(4)]).split(area);
+        let area_command = _tmp[0];
         let _tmp = Layout::default().direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(40)]).margin(1).split(_tmp[1]);
         let area_main = _tmp[0];
         let color = self.project.color.clone();
         let area_info = _tmp[1];
-        let information_widget = Paragraph::new(Text::raw(self.information_window.clone())).style(Style::default()).block(Block::default().borders(Borders::all()).title(" Information "));
+        let title = Block::default().borders(Borders::all())
+            .title(" Information ");
+        let information_widget = Paragraph::new(Text::raw(
+            self.information_window.clone()
+        )).block(title);
         let main_editor_content = project_to_string(&self.project, &self.data);
         let main_editor_widget = Paragraph::new(Text::from(
             main_editor_content.split('\n').map(Spans::from)
-            .chain([Spans::from(vec![Span::styled(" ".repeat(22), Style::default().bg(Color::Rgb(color.0, color.1, color.2)))])])
+            .chain([Spans::from(vec![
+                Span::styled(" ".repeat(22), 
+                    Style::default()
+                    .bg(Color::Rgb(color.0, color.1, color.2)))
+            ])])
             .collect::<Vec<_>>()
         )).block(Block::default().borders(Borders::all()).title(" Editing "));
         f.render_widget(information_widget, area_info);
         f.render_widget(main_editor_widget, area_main);
-        self.command.draw(f, _tmp[0]);
+        self.command.draw(f, area_command);
     }
     fn on_key_code(&mut self, key_code: crossterm::event::KeyCode) {
         let trigger = self.command.on_key_code(key_code);
@@ -197,7 +207,5 @@ impl super::App for EditView<'_> {
             None => self.trigger_command()
         }
     }
-    fn quit(&self) -> Option<super::Switch> {
-        self.quit.clone() 
-    }
+    fn quit(&self) -> Option<super::Switch> { self.quit.clone() }
 }
