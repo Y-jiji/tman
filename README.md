@@ -1,4 +1,3 @@
 ```
-tman urgency
-
+cargo install --path .
 ```
