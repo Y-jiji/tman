@@ -2,7 +2,7 @@
 
 use data::DataBase;
 
-mod view;
+mod app;
 mod data;
 
 #[cfg(debug_assertions)]
