@@ -2,39 +2,42 @@ use serde::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
-    string: String,
-    cursor: usize,
+    command: String,
+    xcursor: usize,
 }
 
 impl Command {
     pub fn new() -> Self {
-        Command { string: String::new(), cursor: 0 }
+        Command { command: String::new(), xcursor: 0 }
     }
     pub fn get(&self) -> &str {
-        &self.string
+        &self.command
+    }
+    pub fn xcursor(&self) -> u16 {
+        self.xcursor as u16
     }
     pub fn clear(&mut self) {
-        self.string.clear();
-        self.cursor = 0;
+        self.command.clear();
+        self.xcursor = 0;
     }
     pub fn l(&mut self) {
-        if self.cursor == 0 { return }
-        self.cursor = self.string.floor_char_boundary(self.cursor - 1);
+        if self.xcursor == 0 { return }
+        self.xcursor = self.command.floor_char_boundary(self.xcursor - 1);
     }
     pub fn r(&mut self) {
-        if self.cursor == self.string.len() { return }
-        self.cursor = self.string.ceil_char_boundary(self.cursor + 1);
+        if self.xcursor == self.command.len() { return }
+        self.xcursor = self.command.ceil_char_boundary(self.xcursor + 1);
     }
     pub fn put(&mut self, c: char) {
-        self.string.insert(self.cursor, c);
-        self.cursor += c.len_utf8();
+        self.command.insert(self.xcursor, c);
+        self.xcursor += c.len_utf8();
     }
     pub fn del(&mut self) {
-        if self.cursor == self.string.len() { return }
-        self.string.remove(self.cursor);
+        if self.xcursor == self.command.len() { return }
+        self.command.remove(self.xcursor);
     }
     pub fn bks(&mut self) {
-        if self.cursor == 0 { return }
+        if self.xcursor == 0 { return }
         self.l(); self.del();
     }
 }
