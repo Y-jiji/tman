@@ -1,5 +1,7 @@
 //! command line plugins
 use serde::*;
+mod pj_editor;
+mod ev_editor;
 
 pub trait Plugin {
     // get name
@@ -7,7 +9,7 @@ pub trait Plugin {
     // extend prompts with this plugin
     fn ext_prompts(&self, db: &crate::DataBase, prompts: &mut String);
     // try to execute a command, if this command is matched by this plugin, return true
-    fn try_execute(&mut self, db: &mut crate::DataBase, command: &str) -> Result<bool, String>;
+    fn try_execute(&mut self, db: &mut crate::DataBase, command: &Vec<&str>) -> Result<bool, String>;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,7 +33,7 @@ impl Plugin for PluginOpt {
         }
     }
     // try execute a command
-    fn try_execute(&mut self, db: &mut crate::DataBase, command: &str) -> Result<bool, String> {
+    fn try_execute(&mut self, db: &mut crate::DataBase, command: &Vec<&str>) -> Result<bool, String> {
         use PluginOpt::*;
         match self {
             Null => Ok(false),
