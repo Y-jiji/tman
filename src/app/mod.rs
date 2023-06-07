@@ -1,10 +1,12 @@
 use serde::*;
 use tui::layout::Rect;
 use self::{viewer::Viewer, plugin::Plugin};
+
+mod grid;
 mod viewer;
 mod plugin;
+mod execute;
 mod command;
-mod grids;
 
 type F<'a> = tui::Frame<'a, tui::backend::CrosstermBackend<std::io::Stdout>>;
 
@@ -90,7 +92,7 @@ impl App {
         // get the grid rows and columns
         let (rows, cols) = self.layouts[self.current];
         // divide the page into rows and columns using grid layout
-        let grids = grids::GridLayout::new(rect, rows, cols);
+        let grids = grid::GridLayout::new(rect, rows, cols);
         // render the viewers w.r.t. selected corners
         for (view, (lu, rd)) in self.viewers[self.current].iter() {
             let rect = grids.select(*lu, *rd);
