@@ -1,5 +1,7 @@
 #![feature(round_char_boundary)]
 
+use data::DataBase;
+
 mod view;
 mod data;
 
@@ -16,21 +18,21 @@ pub fn log(x: String) {
     writeln!(&mut logger, "{x}").unwrap();
 }
 
+fn db_load_or_new() -> Result<DataBase, Box<dyn std::error::Error>> {
+    let db = data::DataBase::load_yaml(&format!("{PATH}/data.yaml"));
+    if let Ok(db) = db { Ok(db) }
+    else {
+        let stdin = std::io::stdin();
+        let mut line = String::new();
+        println!("input a timezone to get started: ");
+        stdin.read_line(&mut line)?;
+        let tz = line.trim().parse::<i32>()?;
+        Ok(data::DataBase::new(tz))
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut db = {
-        let db = data::DataBase::load_yaml(&format!("{PATH}/data.yaml"));
-        if let Ok(db) = db { db }
-        else {
-            let stdin = std::io::stdin();
-            let mut line = String::new();
-            println!("input a timezone to get started: ");
-            stdin.read_line(&mut line)?;
-            let tz = line.trim().parse::<i32>()?;
-            data::DataBase::new(tz)
-        }
-    };
-    let app = view::Editor::new(view::Mode::Pj, String::from("root"), &db);
-    view::run_app(app, &mut db)?;
+    let db = db_load_or_new()?;
     db.save_yaml(&format!("{PATH}/data.yaml"))?;
     Ok(())
 }
