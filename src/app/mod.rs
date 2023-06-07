@@ -161,10 +161,13 @@ impl App {
         Ok(())
     }
     fn render(&self, f: &mut F) {
+        // FIXME: render meaningful things with render_command, render_viewers, render_standby
+        self.render_command(f, f.size());
     }
     fn key(&mut self, key: KeyCode, db: &mut crate::DataBase) {
         let to_num = |x: Option<usize>| x.map(|x| x + 1).unwrap_or(0);
-        let to_opt = |x: usize| (x != 0).then_some(x - 1);
+        let to_opt = |x: usize| (x != 0).then(|| x - 1);
+        let prompts = self.select_prompts();
         match key {
             // edit command line
             KeyCode::Char(c) => {
@@ -180,20 +183,19 @@ impl App {
                 self.ycursor = None;
             },
             KeyCode::Tab => {
-                let prompts = self.select_prompts();
                 let prompts = prompts.get(self.ycursor.unwrap_or(0));
                 if prompts.is_none() { return }
                 let prompts = prompts.unwrap();
                 let capture = self.command.get_regex().find(prompts);
                 if capture.is_none() { return }
                 let capture = capture.unwrap();
-                let command = self.command.get()[..capture.end()].to_string();
+                let command = prompts[..capture.end()].to_string();
                 self.command.set(command);
                 self.ycursor = None;
             },
             // move cursor
-            KeyCode::Up => self.ycursor = to_opt((to_num(self.ycursor) + self.prompts.lines().count()) % (self.prompts.lines().count() + 1)),
-            KeyCode::Down => self.ycursor = to_opt((to_num(self.ycursor) + 1) % (self.prompts.lines().count() + 1)),
+            KeyCode::Up => self.ycursor = to_opt((to_num(self.ycursor) + prompts.len()) % (prompts.len() + 1)),
+            KeyCode::Down => self.ycursor = to_opt((to_num(self.ycursor) + 1) % (prompts.len() + 1)),
             KeyCode::Left => self.command.l(),
             KeyCode::Right => self.command.r(),
             // trigger command
@@ -205,6 +207,7 @@ impl App {
                 }
                 self.execute(db);
                 self.refresh(db);
+                self.ycursor = None;
             },
             _ => {}
         };
@@ -254,7 +257,9 @@ impl App {
     }
     // generate internal prompts
     fn int_prompts(&self, db: &crate::DataBase) -> String {
-        todo!("add internal prompts after implementing basic command executions")
+        // todo!("add internal prompts after implementing basic command executions")
+        let rands = "12344567890\nqwertyuiopasdfghjjklzxcvbnm ".chars().collect::<Vec<char>>();
+        String::from_iter((0..10000).map(|_| -> char { rands[rand::random::<usize>() % rands.len()] }))
     }
     // list standby (not rendered, but already pulled) plugins and views
     // also render hidden tablets
@@ -300,7 +305,9 @@ impl App {
         let regex = self.command.get_regex();
         let match_hist = count_matches(&self.history[self.current], &regex);
         let match_prom = count_matches(&self.prompts, &regex);
-        match_hist.into_iter().map(|(s, _)| s).chain(match_prom.into_iter().map(|(s, _)| s)).collect()
+        let mut matches = match_hist.into_iter().map(|(s, _)| s).chain(match_prom.into_iter().map(|(s, _)| s)).collect::<Vec<_>>();
+        matches.dedup();
+        return matches;
     }
     // compute text highlighting from cursor position and given prompts
     fn window_content(&self, height: usize) -> Vec<tui::text::Spans> {
@@ -312,6 +319,7 @@ impl App {
         // strong and faint colors
         let strong = Style::default().add_modifier(Modifier::BOLD);
         let normal = Style::default().fg(Color::Rgb(180, 180, 180));
+        // FIXME: the offset of cursor is currently wrong!
         if let Some(cursor) = self.ycursor {
             if cursor + height - 1 < prompts.len() {
                 // if cursor is on prompts but not the bottom h - 1 ones
@@ -322,15 +330,15 @@ impl App {
                     .map(Spans::from).collect()
             } else {
                 // if cursor is on the bottom h - 1 elements
-                let window = prompts[prompts.len().max(height-1) - height + 1 .. prompts.len()].iter().copied();
+                let window = prompts[prompts.len().max(height-1) + 1-height .. prompts.len()].iter().copied();
                 [command].into_iter()
                     .chain(window).enumerate()
-                    .map(|(i, s)| Span::styled(s, if height - 2 - i == prompts.len() - cursor { strong } else { normal }))
+                    .map(|(i, s)| Span::styled(s, if height.min(prompts.len()) - i == prompts.len() - cursor { strong } else { normal }))
                     .map(Spans::from).collect()
             }
         } else {
             // if cursor is on command
-            let window = prompts[..height-1].iter().copied();
+            let window = prompts[..(height-1).min(prompts.len())].iter().copied();
             [Span::styled(command, strong)].into_iter()
                 .chain(window.map(|s| Span::styled(s, normal))).map(Spans::from).collect()
         }
