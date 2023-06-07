@@ -31,8 +31,17 @@ fn db_load_or_new() -> Result<DataBase, Box<dyn std::error::Error>> {
     }
 }
 
+fn app_load_or_new() -> Result<app::App, Box<dyn std::error::Error>> {
+    let app = app::App::load_yaml(&format!("{PATH}/app.yaml"));
+    if let Ok(app) = app { Ok(app) }
+    else { Ok(app::App::new()) }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let db = db_load_or_new()?;
+    let mut db = db_load_or_new()?;
+    let mut app = app_load_or_new()?;
+    app.run(&mut db)?;
+    app.save_yaml(&format!("{PATH}/app.yaml"))?;
     db.save_yaml(&format!("{PATH}/data.yaml"))?;
     Ok(())
 }

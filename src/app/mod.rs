@@ -105,9 +105,9 @@ lazy_static::lazy_static!{
 impl App {
     pub fn new() -> Self {
         let command = command::Command::new();
-        let plugins = vec![];
         let prompts = String::new();
         let exeinfo = String::new();
+        let plugins = vec![vec![]];
         let viewers = vec![vec![]];
         let layouts = vec![(1, 1)];
         Self { command, plugins, prompts, layouts, viewers, current: 0, ycursor: None, exeinfo, history: vec![String::new()], sigexit: false }
@@ -117,6 +117,50 @@ impl App {
     }
     pub fn save_yaml(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
         Ok(serde_yaml::to_writer(std::fs::File::create(path)?, self)?)
+    }
+    pub fn run(&mut self, db: &mut crate::DataBase) 
+    -> Result<(), Box<dyn std::error::Error>> {
+        use crossterm::{
+            event::{self, DisableMouseCapture, EnableMouseCapture, Event},
+            execute,
+            terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+        };
+        use std::{io, time::{Duration, Instant}};
+        use tui::{backend::CrosstermBackend, Terminal};
+        // setup terminal
+        enable_raw_mode()?;
+        let mut stdout = io::stdout();
+        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+        let backend = CrosstermBackend::new(stdout);
+        let mut terminal = Terminal::new(backend)?;
+        let mut last_tick = Instant::now();
+        let tick_rate = Duration::from_millis(12);
+        // run application
+        while !self.sigexit {
+            terminal.draw(|f| self.render(f))?;
+            let timeout = tick_rate
+                .checked_sub(last_tick.elapsed())
+                .unwrap_or_else(|| Duration::from_secs(0));
+            if crossterm::event::poll(timeout)? {
+                if let Event::Key(key) = event::read()? {
+                    self.key(key.code, db);
+                }
+            }
+            if last_tick.elapsed() >= tick_rate {
+                last_tick = Instant::now();
+            }
+        }
+        // restore terminal
+        disable_raw_mode()?;
+        execute!(
+            terminal.backend_mut(),
+            LeaveAlternateScreen,
+            DisableMouseCapture
+        )?;
+        terminal.show_cursor()?;
+        Ok(())
+    }
+    fn render(&self, f: &mut F) {
     }
     fn key(&mut self, key: KeyCode, db: &mut crate::DataBase) {
         let to_num = |x: Option<usize>| x.map(|x| x + 1).unwrap_or(0);
