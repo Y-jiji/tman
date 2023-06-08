@@ -163,7 +163,8 @@ impl App {
     }
     fn render(&self, f: &mut F) {
         // FIXME: render meaningful things with render_command, render_viewers, render_standby
-        self.render_command(f, f.size());
+        let rect = f.size();
+        self.render_command(f, Rect { x: rect.x, y: rect.y, width: rect.width, height: (rect.height / 10).max(4).min(8) });
     }
     fn key(&mut self, key: KeyCode, db: &mut crate::DataBase) {
         let to_num = |x: Option<usize>| x.map(|x| x + 1).unwrap_or(0);
