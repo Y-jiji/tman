@@ -323,7 +323,6 @@ impl App {
         // FIXME: the offset of cursor is currently wrong!
         if let Some(cursor) = self.ycursor {
             if cursor + height - 1 < prompts.len() {
-                #[cfg(debug_assertions)] crate::log(format!("case 1"));
                 // if cursor is on prompts but not the bottom h - 1 ones
                 let window = prompts[cursor..cursor + height - 1].iter().copied();
                 [command].into_iter()
@@ -331,7 +330,6 @@ impl App {
                     .map(|(i, s)| Span::styled(s, if i == 1 { strong } else { normal }))
                     .map(Spans::from).collect()
             } else {
-                #[cfg(debug_assertions)] crate::log(format!("case 2"));
                 // if cursor is on the bottom h - 1 elements
                 let window = prompts[prompts.len().max(height-1) + 1-height .. prompts.len()].iter().copied();
                 [command].into_iter()
@@ -341,7 +339,6 @@ impl App {
             }
         } else {
             // if cursor is on command
-            #[cfg(debug_assertions)] crate::log(format!("case 3"));
             let window = prompts[..(height-1).min(prompts.len())].iter().copied();
             [Span::styled(command, strong)].into_iter()
                 .chain(window.map(|s| Span::styled(s, normal))).map(Spans::from).collect()
