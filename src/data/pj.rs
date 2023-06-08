@@ -144,6 +144,7 @@ impl PjStore {
             pj.id = id;
             let pp = self.vect[pj.pp].as_mut().unwrap();
             pp.chpj.insert(id);
+            self.name.insert(pj.name.to_string(), id);
             self.vect.push(Some(pj));
             Ok(PjLog::Create { id })
         }

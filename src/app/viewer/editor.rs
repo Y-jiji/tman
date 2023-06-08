@@ -160,13 +160,16 @@ impl super::Viewer for EditorView {
         use tui::widgets::*;
         use tui::style::*;
         use tui::text::*;
+        use tui::layout::*;
         // print current item to an area of given size
-        let print = self.print_all(rect.width as usize - 2, rect.height as usize - 2);
+        let print = self.print_all(
+            (rect.width as usize - 2).min(64), rect.height as usize - 2);
         let print = print.into_iter().map(|x| Spans::from(Span::raw(x)));
         let print = Text::from(print.collect::<Vec<_>>());
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style { fg: Some(self.color()), ..Default::default() });
-        f.render_widget(Paragraph::new(print).block(block), rect);
+        f.render_widget(
+            Paragraph::new(print).alignment(Alignment::Center).block(block), rect);
     }
 }

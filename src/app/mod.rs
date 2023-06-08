@@ -151,7 +151,7 @@ lazy_static::lazy_static!{
             let ed = EditorView::new_pj(pj, db);
             let (rows, cols) = this.layouts[this.current];
             this.viewers[this.current].push(
-                (ed.into(), GridLayout::corner_from(&args[1], rows, cols))
+                (ed.into(), GridLayout::corner_from(&args[0], rows, cols))
             );
             Ok(())
         })
@@ -178,10 +178,10 @@ impl App {
         Self { command, plugins, prompts, layouts, viewers, current: 0, ycursor: None, exeinfo, history: vec![String::new()], sigexit: false }
     }
     pub fn load_yaml(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(serde_yaml::from_reader::<_, Self>(std::fs::File::open(path)?)?)
+        Ok(serde_json::from_reader::<_, Self>(std::fs::File::open(path)?)?)
     }
     pub fn save_yaml(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
-        Ok(serde_yaml::to_writer(std::fs::File::create(path)?, self)?)
+        Ok(serde_json::to_writer(std::fs::File::create(path)?, self)?)
     }
     pub fn run(&mut self, db: &mut crate::DataBase) 
     -> Result<(), Box<dyn std::error::Error>> {

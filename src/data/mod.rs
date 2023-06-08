@@ -44,10 +44,10 @@ impl DataBase {
         }
     }
     pub fn load_yaml(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(serde_yaml::from_reader::<_, Self>(std::fs::File::open(path)?)?)
+        Ok(serde_json::from_reader::<_, Self>(std::fs::File::open(path)?)?)
     }
     pub fn save_yaml(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
-        Ok(serde_yaml::to_writer(std::fs::File::create(path)?, self)?)
+        Ok(serde_json::to_writer(std::fs::File::create(path)?, self)?)
     }
     pub fn pj_list(&self) -> Result<Vec<String>, DBErr> {
         self.pj.get_all_names().map_err(DBErr::Pj)
