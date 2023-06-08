@@ -54,7 +54,7 @@ impl EditorView {
         *(&mut pair.1) = pair.1.get(
             ..total.min(w).max(pair.0.width() + 4) - pair.0.width() - 4).unwrap();
         let total = pair.0.width() + pair.1.width();
-        format!("{}{}{}", pair.0, " ".repeat(w - total), pair.1)
+        format!("{}{}{}", pair.0, " ".repeat(w.max(4+total) - total), pair.1)
     }
     fn parse_due(&self, due: i64) -> String {
         use chrono::NaiveDateTime;
@@ -121,16 +121,17 @@ impl super::Viewer for EditorView {
         "editor".to_string()
     }
     fn refresh(&mut self, db: &DataBase) {
-        self.item = match &self.item {
+        match &mut self.item {
             Item::Ev(ev) => {
+                *ev = db.ev_get_by_id(ev.id()).unwrap();
                 self.deps.clear();
                 self.deps_rvs.clear();
                 self.children.clear();
                 self.tz = db.tz() as i64;
                 self.parent = db.pj_get_by_id(ev.pp()).unwrap().name().to_string();
-                Item::Ev(db.ev_get_by_id(ev.id()).unwrap())
             },
             Item::Pj(pj) => {
+                *pj = db.pj_get_by_id(pj.id()).unwrap();
                 self.deps = pj.iter_deps()
                     .map(|id| 
                         db.pj_get_by_id(id).unwrap()
@@ -151,7 +152,6 @@ impl super::Viewer for EditorView {
                     ).collect::<Vec<_>>();
                 self.tz = db.tz() as i64;
                 self.parent = db.pj_get_by_id(pj.pp()).unwrap().name().to_string();
-                Item::Pj(db.pj_get_by_id(pj.id()).unwrap())
             },
         }
     }

@@ -314,12 +314,17 @@ impl App {
         let res = EXES.try_execute(&args, self, db);
         // decompose down the attributes of self
         let Self { exeinfo, history, current, command, plugins, .. } = self;
+        // clear execution information
+        exeinfo.clear();
         // capture the modified attributes
         let mut handle_result  = |res| match res {
             Ok(false) => {return false}
             Err(e) => {*exeinfo = e; return true}
             Ok(true) => {
-                *exeinfo = String::from("succeed: ") + command.get(); 
+                // this might be filled by command
+                if exeinfo.is_empty() {
+                    *exeinfo = String::from("succeed: ") + command.get(); 
+                }
                 history[*current].push_str(command.get());
                 history[*current].push('\n');
                 return true
