@@ -1,8 +1,9 @@
 use serde::*;
+use plugin::*;
+use viewer::*;
 use tui::layout::Rect;
-use self::{viewer::Viewer, plugin::Plugin, execute::TryExecute};
+use self::execute::TryExecute;
 use crossterm::event::KeyCode;
-use regex::internal::Program;
 
 mod grid;
 mod viewer;
@@ -56,6 +57,22 @@ lazy_static::lazy_static!{
             this.history.insert(this.current, String::new());
             this.current += 1;
             this.refresh(db);
+            Ok(())
+        })
+        // color block for testing
+        (w "^color$", w "^block$", v r"^\d{2}:\d{2}", v r"^[a-f0-9]{6}$", |this, args, _db| {
+            use grid::*;
+            let cb = usize::from_str_radix(args[1].trim_start_matches("0"), 16).unwrap_or(0);
+            let cb = ColorBlock::new((cb / (256 * 256)) as u8, (cb / 256 % 256) as u8, (cb % 256) as u8);
+            let (rows, cols) = this.layouts[this.current];
+            this.viewers[this.current].push((ViewerOpt::ColorBlock(cb), GridLayout::corner_from(args[0], rows, cols)));
+            Ok(())
+        })
+        (w "^grid$", v r"^[1-4]:[1-4]$", |this, args, _db| {
+            let mut grid = args[0].split(":").map(|x| x.parse::<u16>().unwrap());
+            this.layouts[this.current] = (grid.next().unwrap(), grid.next().unwrap());
+            let viewers = this.viewers[this.current].iter_mut();
+            for (_viewer, grid) in viewers { *grid = None }
             Ok(())
         })
         (w "^page|pg$", w r"\-|del|delete", |this, _args, db| {
@@ -135,7 +152,7 @@ impl App {
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         let mut last_tick = Instant::now();
-        let tick_rate = Duration::from_millis(12);
+        let tick_rate = Duration::from_millis(1);
         // run application
         while !self.sigexit {
             terminal.draw(|f| self.render(f))?;
@@ -163,8 +180,20 @@ impl App {
     }
     fn render(&self, f: &mut F) {
         // FIXME: render meaningful things with render_command, render_viewers, render_standby
-        let rect = f.size();
-        self.render_command(f, Rect { x: rect.x, y: rect.y, width: rect.width, height: (rect.height / 10).max(4).min(8) });
+        let mut rect = f.size();
+        let (rows, cols) = self.layouts[self.current];
+        rect.x = rect.x + (rect.width % cols) / 2;
+        rect.y = rect.y + (rect.height % rows) / 2;
+        rect.width = (rect.width / cols) * cols;
+        rect.height = (rect.height / rows) * rows;
+        let _h = (rect.height / 5).max(4).min(8);
+        let _w = (rect.width / 2).max(32);
+        self.render_command(f, Rect {
+            x: rect.x, y: rect.y, width: _w, height: _h });
+        self.render_standby(f, Rect {
+            x: rect.x + _w, y: rect.y, width: rect.width - _w, height: _h });
+        self.render_viewers(f, Rect {
+            x: rect.x, y: rect.y + _h, width: rect.width, height: rect.height - _h });
     }
     fn key(&mut self, key: KeyCode, db: &mut crate::DataBase) {
         let to_num = |x: Option<usize>| x.map(|x| x + 1).unwrap_or(0);
@@ -266,29 +295,34 @@ impl App {
     // list standby (not rendered, but already pulled) plugins and views
     // also render hidden tablets
     fn render_standby(&self, f: &mut F, rect: Rect) {
-        todo!("may be a mini-map?")
+        use tui::widgets::*;
+        use tui::style::*;
+        let block = Block::default().style(Style::default().bg(Color::Rgb(0, 0, 0)));
+        f.render_widget(block, rect);
     }
     // put viewers in their place
     fn render_viewers(&self, f: &mut F, rect: Rect) {
         // get the grid rows and columns
         let (rows, cols) = self.layouts[self.current];
         // divide the page into rows and columns using grid layout
-        let grids = grid::GridLayout::new(rect, rows, cols);
+        let mut grids = grid::GridLayout::new(rect, rows, cols);
         // render the viewers w.r.t. selected corners
         for (view, grid) in self.viewers[self.current].iter() {
             if grid.is_none() { continue }
             let (lu, rd) = grid.unwrap();
-            let rect = grids.select(lu, rd);
-            view.render(f, rect);
+            if let Some(rect) = grids.corner_grid(lu, rd) {
+                view.render(f, rect);
+            }
         }
+        grids.render_placeholder(f);
     }
     // put the command line and prompts into their place
     fn render_command(&self, f: &mut F, rect: Rect) {
         use tui::text::*;
-        use tui::widgets::Paragraph;
+        use tui::widgets::*;
         let text = Text::from(self.window_content(rect.height as usize));
-        f.render_widget(Paragraph::new(text), rect);
-        f.set_cursor(rect.x + self.command.xcursor(), rect.y);
+        f.render_widget(Paragraph::new(text).wrap(Wrap { trim: true }), rect);
+        f.set_cursor(rect.x + self.command.xcursor() % rect.width, rect.y + self.command.xcursor() / rect.width);
     }
     // select prompts
     fn select_prompts(&self) -> Vec<&str> {
@@ -321,7 +355,6 @@ impl App {
         // strong and faint colors
         let strong = Style::default().add_modifier(Modifier::BOLD);
         let normal = Style::default().fg(Color::Rgb(180, 180, 180));
-        // FIXME: the offset of cursor is currently wrong!
         if let Some(cursor) = self.ycursor {
             if cursor + height - 1 < prompts.len() {
                 // if cursor is on prompts but not the bottom h - 1 ones
