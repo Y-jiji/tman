@@ -21,7 +21,7 @@ impl<App> TryExecute<App> for CommandExecution<App> {
             }
         ).fold(true, |x, y| x && y);
         if !will_execute { return Ok(false) }
-        let args = command.iter().enumerate().filter_map(|(i, x)| matches!(self.pattern[i], ArgPattern::Word(_)).then_some(*x));
+        let args = command.iter().enumerate().filter_map(|(i, x)| matches!(self.pattern[i], ArgPattern::Variable(_)).then_some(*x));
         (self.execute)(app, args.collect(), db).map(|()| true)
     }
 }

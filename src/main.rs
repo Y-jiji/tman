@@ -10,11 +10,11 @@ const PATH: &str = "./tmp";
 #[cfg(not(debug_assertions))]
 const PATH: &str = "C:/ProgramData/tman";
 
-#[cfg(test)]
+#[cfg(debug_assertions)]
 pub fn log(x: String) {
     use std::io::Write;
     let mut logger = std::fs::OpenOptions::new().create(true)
-        .append(true).open("tmp/log").unwrap();
+        .append(true).open("./tmp/log").unwrap();
     writeln!(&mut logger, "{x}").unwrap();
 }
 
