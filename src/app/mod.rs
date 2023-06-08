@@ -1,8 +1,5 @@
 use serde::*;
-use plugin::*;
-use viewer::*;
 use tui::layout::Rect;
-use self::execute::TryExecute;
 use crossterm::event::KeyCode;
 
 mod grid;
@@ -11,13 +8,19 @@ mod plugin;
 mod execute;
 mod command;
 
+use grid::*;
+use viewer::*;
+use plugin::*;
+use execute::*;
+use command::*;
+
 type F<'a> = tui::Frame<'a, tui::backend::CrosstermBackend<std::io::Stdout>>;
 
 // application state can also be saved
 #[derive(Serialize, Deserialize)]
 pub struct App {
     // the input command line
-    command: command::Command,
+    command: Command,
     // command line plugins that generates command prompts
     plugins: Vec<Vec<plugin::PluginOpt>>,
     // command line error
@@ -48,6 +51,13 @@ lazy_static::lazy_static!{
             // modify exit state to true
             this.sigexit = true; Ok(())
         })
+        (w "^grid$", v r"^[1-4]:[1-4]$", |this, args, _db| {
+            let mut grid = args[0].split(":").map(|x| x.parse::<u16>().unwrap());
+            this.layouts[this.current] = (grid.next().unwrap(), grid.next().unwrap());
+            let viewers = this.viewers[this.current].iter_mut();
+            for (_viewer, grid) in viewers { *grid = None }
+            Ok(())
+        })
         (w "^page|pg$", w r"\+|new|create", |this, _args, db| {
             // insert a page after current page
             // this is potentially slow
@@ -57,22 +67,6 @@ lazy_static::lazy_static!{
             this.history.insert(this.current, String::new());
             this.current += 1;
             this.refresh(db);
-            Ok(())
-        })
-        // color block for testing
-        (w "^color$", w "^block$", v r"^\d{2}:\d{2}", v r"^[a-f0-9]{6}$", |this, args, _db| {
-            use grid::*;
-            let cb = usize::from_str_radix(args[1].trim_start_matches("0"), 16).unwrap_or(0);
-            let cb = ColorBlock::new((cb / (256 * 256)) as u8, (cb / 256 % 256) as u8, (cb % 256) as u8);
-            let (rows, cols) = this.layouts[this.current];
-            this.viewers[this.current].push((ViewerOpt::ColorBlock(cb), GridLayout::corner_from(args[0], rows, cols)));
-            Ok(())
-        })
-        (w "^grid$", v r"^[1-4]:[1-4]$", |this, args, _db| {
-            let mut grid = args[0].split(":").map(|x| x.parse::<u16>().unwrap());
-            this.layouts[this.current] = (grid.next().unwrap(), grid.next().unwrap());
-            let viewers = this.viewers[this.current].iter_mut();
-            for (_viewer, grid) in viewers { *grid = None }
             Ok(())
         })
         (w "^page|pg$", w r"\-|del|delete", |this, _args, db| {
@@ -102,6 +96,14 @@ lazy_static::lazy_static!{
             this.history[this.current].clear();
             Ok(())
         })
+        // color block for testing
+        (w "^color$", w "^block$", v r"^\d{2}:\d{2}", v r"^[a-f0-9]{6}$", |this, args, _db| {
+            let cb = usize::from_str_radix(args[1].trim_start_matches("0"), 16).unwrap_or(0);
+            let cb = ColorBlock::new((cb / (256 * 256)) as u8, (cb / 256 % 256) as u8, (cb % 256) as u8);
+            let (rows, cols) = this.layouts[this.current];
+            this.viewers[this.current].push((ViewerOpt::ColorBlock(cb), GridLayout::corner_from(args[0], rows, cols)));
+            Ok(())
+        })
         (w "^ed|edit$", w "^pj|proj|project$", v "^.*$", |this, args, db| {
             // add an editor plugin
             todo!("implement project editor plugin")
@@ -122,7 +124,7 @@ lazy_static::lazy_static!{
 
 impl App {
     pub fn new() -> Self {
-        let command = command::Command::new();
+        let command = Command::new();
         let prompts = String::new();
         let exeinfo = String::new();
         let plugins = vec![vec![]];
@@ -288,6 +290,7 @@ impl App {
     }
     // generate internal prompts
     fn int_prompts(&self, db: &crate::DataBase) -> String {
+        // FIXME: output meaningful prompts
         // todo!("add internal prompts after implementing basic command executions")
         let rands = "12344567890\nqwertyuiopasdfghjjklzxcvbnm ".chars().collect::<Vec<char>>();
         String::from_iter((0..10000).map(|_| -> char { rands[rand::random::<usize>() % rands.len()] }))
@@ -297,6 +300,8 @@ impl App {
     fn render_standby(&self, f: &mut F, rect: Rect) {
         use tui::widgets::*;
         use tui::style::*;
+        // TODO: page: current / total
+        // TODO: list plugins and viewers, their position
         let block = Block::default().style(Style::default().bg(Color::Rgb(0, 0, 0)));
         f.render_widget(block, rect);
     }
