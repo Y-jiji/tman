@@ -1,7 +1,6 @@
 //! command line plugins
 use serde::*;
-mod pj_editor;
-mod ev_editor;
+mod editor;
 
 pub trait Plugin {
     // get name

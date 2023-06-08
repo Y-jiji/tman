@@ -47,33 +47,46 @@ pub struct App {
 lazy_static::lazy_static!{
     // internal command implementations
     static ref EXES: Vec<execute::CommandExecution<App>> = execute::x_decl! {
+        // exit application
         (w "^exit$", |this, _args, _db| {
             // modify exit state to true
             this.sigexit = true; Ok(())
         })
-        (w "^grid$", v r"^[1-4]:[1-4]$", |this, args, _db| {
-            let mut grid = args[0].split(":").map(|x| x.parse::<u16>().unwrap());
-            this.layouts[this.current] = (grid.next().unwrap(), grid.next().unwrap());
+        // set grid for viewer layout
+        (w "^grid$", v r"^[1-4][1-4]$", |this, args, _db| {
+            // cols <= 4 and rows <= 4
+            let grid = args[0].parse::<u16>().unwrap();
+            this.layouts[this.current] = (grid / 10, grid % 10);
             let viewers = this.viewers[this.current].iter_mut();
             for (_viewer, grid) in viewers { *grid = None }
             Ok(())
         })
+        // clear current page
+        (w "^clear$", |this, _args, _db| {
+            this.viewers[this.current].clear();
+            this.plugins[this.current].clear();
+            Ok(())
+        })
+        // create a page
         (w "^page|pg$", w r"\+|new|create", |this, _args, db| {
             // insert a page after current page
             // this is potentially slow
+            if this.viewers.len() >= 10 {
+                Err(String::from("cannot add a page because 10 pages are maximal"))?
+            }
+            this.current += 1;
             this.viewers.insert(this.current, vec![]);
             this.layouts.insert(this.current, (1, 1));
             this.plugins.insert(this.current, vec![]);
             this.history.insert(this.current, String::new());
-            this.current += 1;
             this.refresh(db);
             Ok(())
         })
-        (w "^page|pg$", w r"\-|del|delete", |this, _args, db| {
+        // delete current page
+        (w "^page|pg$", w r"-|del|delete", |this, _args, db| {
             // remove a current page
-            // this is potentially slow
             if this.viewers.len() == 1 {
-                Err(String::from("cannt delete a page when there is only one page"))?
+                Err(String::from("cannot delete a page when there is only one page"))?
             }
             this.viewers.remove(this.current);
             this.layouts.remove(this.current);
@@ -83,41 +96,73 @@ lazy_static::lazy_static!{
             this.refresh(db);
             Ok(())
         })
-        (w "^page|pg$", v r"[1-9]\d*", |this, args, db| {
+        // switch page
+        (w "^page|pg$", v r"[0-9]*", |this, args, db| {
             // switch page by a page number
-            #[cfg(debug_assertions)] crate::log(format!("{args:?}"));
             this.current = args[0].parse::<usize>()
                 .unwrap().min(this.plugins.len()-1);
             this.refresh(db);
             Ok(())
         })
+        // clean history of current page
         (w "^hist|history$", w r"clean|clear", |this, _args, _db| {
-            // clean history of current page
             this.history[this.current].clear();
             Ok(())
         })
         // color block for testing
-        (w "^color$", w "^block$", v r"^\d{2}:\d{2}", v r"^[a-f0-9]{6}$", |this, args, _db| {
+        (w "^color$", w "^block$", v r"^[0-3]{2}:[0-3]{2}", v r"^[a-f0-9]{6}$", |this, args, _db| {
             let cb = usize::from_str_radix(args[1].trim_start_matches("0"), 16).unwrap_or(0);
             let cb = ColorBlock::new((cb / (256 * 256)) as u8, (cb / 256 % 256) as u8, (cb % 256) as u8);
             let (rows, cols) = this.layouts[this.current];
-            this.viewers[this.current].push((ViewerOpt::ColorBlock(cb), GridLayout::corner_from(args[0], rows, cols)));
+            this.viewers[this.current].push(
+                (cb.into(), GridLayout::corner_from(args[0], rows, cols)));
             Ok(())
         })
-        (w "^ed|edit$", w "^pj|proj|project$", v "^.*$", |this, args, db| {
-            // add an editor plugin
-            todo!("implement project editor plugin")
-        })
-        (w "^ed|edit$", w "^ev|event$", v "^.*$", |this, args, db| {
-            todo!("implement event editor plugin")
-        })
-        (w "^list$", v r"^\d{2}:\d{2}$", v "^.*$", |this, args, db| {
+        // display project list
+        (w "^list$", v r"^[0-3]{2}:[0-3]{2}$", v "^.*$", |this, args, db| {
             // add a list viewer
             todo!("implement project list viewer")
         })
-        (w "^plan|planner$", v r"\d{2}:\d{2}", v r"\d{4}/\d{2}/\d{2}", |this, args, db| {
-            // put planner on a given viewport
-            todo!("implement auto planner")
+        // display auto planner with year-month-date
+        (w "^plan|planner$", v r"[0-3]{2}:[0-3]{2}", v r"\d{4}/\d{2}/\d{2}", |this, args, db| {
+            // put planner on a given viewport for a given date
+            todo!("implement auto planner, add planner commands")
+        })
+        // display auto planner this week
+        (w "^plan|planner$", v r"[0-3]{2}:[0-3]{2}", v r"\d{4}/\d{2}/\d{2}", |this, args, db| {
+            // put planner on a given viewport for a given date
+            todo!("implement auto planner, add planner commands")
+        })
+        // display month calendar
+        (w "^cal|calender$", v r"[0-3]{2}:[0-3]{2}", v r"\d{4}/\d{2}", |this, args, db| {
+            todo!("remove current calendar and put a new one")
+        })
+        // display year calendar
+        (w "^cal|calender$", v r"[0-3]{2}:[0-3]{2}", v r"\d{4}", |this, args, db| {
+            todo!("remove current calendar and put a new one")
+        })
+        // project editor plugin and project viewer
+        (w "^ed|edit|editor$", v r"[0-3]{2}:[0-3]{2}", w "^pj|proj|project$", v "^.*$", |this, args, db| {
+            let name = args[1];
+            let pj = db.pj_get_or_create_by_name(&name);
+            // TODO: remove current editor plugins or viewers if there is any
+            // TODO: add an editor plugin
+            // add editor viewer
+            let ed = EditorView::new_pj(pj, db);
+            let (rows, cols) = this.layouts[this.current];
+            this.viewers[this.current].push(
+                (ed.into(), GridLayout::corner_from(&args[1], rows, cols))
+            );
+            Ok(())
+        })
+        // event editor plugin and event viewer
+        (w "^ed|edit|editor$", v r"[0-3]{2}:[0-3]{2}", w "^ev|event$", v "^.*$", |this, args, db| {
+            // remove current editor plugins or viewers if there is any
+            todo!("implement event editor plugin")
+        })
+        // remove editor if there is any, else display an error message
+        (w "^ed|edit|editor", v r"-|stop|quit|exit|remove", |this, args, db| {
+            todo!("remove editor plugin and viewer")
         })
     };
 }
@@ -154,7 +199,7 @@ impl App {
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         let mut last_tick = Instant::now();
-        let tick_rate = Duration::from_millis(1);
+        let tick_rate = Duration::from_secs_f32(0.01);
         // run application
         while !self.sigexit {
             terminal.draw(|f| self.render(f))?;
@@ -181,15 +226,15 @@ impl App {
         Ok(())
     }
     fn render(&self, f: &mut F) {
-        // FIXME: render meaningful things with render_command, render_viewers, render_standby
         let mut rect = f.size();
-        let (rows, cols) = self.layouts[self.current];
-        rect.x = rect.x + (rect.width % cols) / 2;
-        rect.y = rect.y + (rect.height % rows) / 2;
-        rect.width = (rect.width / cols) * cols;
-        rect.height = (rect.height / rows) * rows;
-        let _h = (rect.height / 5).max(4).min(8);
-        let _w = (rect.width / 2).max(32);
+        let (_rows, cols) = self.layouts[self.current];
+        rect.x = rect.x + (rect.width % cols + 3) / 2;
+        rect.width = ((rect.width - 2) / cols) * cols;
+        rect.y = 1;
+        rect.height -= 1;
+        let _h = rect.height / 5;
+        let _h = _h.max(4).min(16);
+        let _w = rect.width / 2;
         self.render_command(f, Rect {
             x: rect.x, y: rect.y, width: _w, height: _h });
         self.render_standby(f, Rect {
@@ -291,7 +336,6 @@ impl App {
     // generate internal prompts
     fn int_prompts(&self, db: &crate::DataBase) -> String {
         // FIXME: output meaningful prompts
-        // todo!("add internal prompts after implementing basic command executions")
         let rands = "12344567890\nqwertyuiopasdfghjjklzxcvbnm ".chars().collect::<Vec<char>>();
         String::from_iter((0..10000).map(|_| -> char { rands[rand::random::<usize>() % rands.len()] }))
     }
@@ -312,7 +356,7 @@ impl App {
         // divide the page into rows and columns using grid layout
         let mut grids = grid::GridLayout::new(rect, rows, cols);
         // render the viewers w.r.t. selected corners
-        for (view, grid) in self.viewers[self.current].iter() {
+        for (view, grid) in self.viewers[self.current].iter().rev() {
             if grid.is_none() { continue }
             let (lu, rd) = grid.unwrap();
             if let Some(rect) = grids.corner_grid(lu, rd) {

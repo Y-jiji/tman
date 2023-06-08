@@ -55,10 +55,18 @@ impl DataBase {
     pub fn ev_list(&self) -> Result<Vec<String>, DBErr> {
         self.ev.get_all_names().map_err(DBErr::Ev)
     }
-    pub fn pj_get_by_name(&self, name: &String) -> Option<Pj> {
+    pub fn pj_get_by_name(&self, name: &str) -> Option<Pj> {
         self.pj.get_by_name(name)
     }
-    pub fn ev_get_by_name(&self, name: &String) -> Option<Ev> {
+    pub fn pj_get_or_create_by_name(&mut self, name: &str) -> Pj {
+        self.pj.get_by_name(name).unwrap_or_else(|| {
+            let pj = pj::Pj::new(name.to_string());
+            let res = self.pj.create(pj);
+            self.log.push(vec![res.unwrap().into()]);
+            self.pj.get_by_name(name).unwrap()
+        })
+    }
+    pub fn ev_get_by_name(&self, name: &str) -> Option<Ev> {
         self.ev.get_by_name(name)
     }
     pub fn pj_get_by_id(&self, id: usize) -> Option<Pj> {
@@ -75,8 +83,12 @@ impl DataBase {
         let log = self.ev.update_name(id, name).map_err(DBErr::Ev)?;
         self.log.push(vec![DBLog::Ev(log)]); Ok(())
     }
-    pub fn set_tz(&self, tz: i32) {
+    pub fn set_tz(&mut self, tz: i32) {
         assert!(tz >= -12 && tz <= 12);
+        self.tz = tz;
+    }
+    pub fn tz(&self) -> i32 {
+        self.tz
     }
     pub fn datetime_loc(&self) -> Result<chrono::NaiveDateTime, DBErr> {
         let naive_utc = chrono::offset::Utc::now().naive_utc();

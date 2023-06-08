@@ -16,7 +16,7 @@ impl Command {
     pub fn get_regex(&self) -> regex::Regex {
         use regex::*;
         Regex::new(&(escape(&self.command)
-            .replace(" ", "[^ ]* "))).unwrap()
+            .replace(" ", "[^ ]* ") + "[^ ]*")).unwrap()
     }
     pub fn set(&mut self, command: impl Into<String>) {
         self.command = command.into();

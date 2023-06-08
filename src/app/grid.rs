@@ -65,7 +65,7 @@ impl GridLayout {
         use tui::style::*;
         for i in 0..self.grid.len() {
             if self.free[i] {
-                let s = format!("{}{}", i as u16 / self.cols, i as u16 % self.cols);
+                let s = format!("grid[{}][{}]", i as u16 / self.cols, i as u16 % self.cols);
                 let c = Some(Color::Rgb(127, 127, 127));
                 f.render_widget(Paragraph::new(Span::styled(s, Style{fg: c, ..Default::default()})), self.grid[i]);
             }

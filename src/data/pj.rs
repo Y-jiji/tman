@@ -37,16 +37,54 @@ impl Pj {
     pub fn id(&self) -> usize {
         self.id
     }
+    pub fn pp(&self) -> usize {
+        self.pp
+    }
     pub fn name(&self) -> &str {
         &self.name
     }
+    pub fn color_usize(&self) -> usize {
+        (self.color.0 as usize * 256 * 256) +
+        (self.color.1 as usize * 256) +
+        (self.color.2 as usize)
+    }
+    pub fn quota_esti(&self) -> usize {
+        self.quota_esti
+    }
+    pub fn quota_done(&self) -> usize {
+        self.quota_done
+    }
+    pub fn weight_type(&self) -> WeightType {
+        self.weight_type
+    }
+    pub fn weight(&self) -> usize {
+        self.weight
+    }
+    pub fn deadline(&self) -> Option<i64> {
+        self.deadline
+    }
+    pub fn color_rgb(&self) -> tui::style::Color {
+        tui::style::Color::Rgb(self.color.0, self.color.1, self.color.2)
+    }
+    pub fn iter_deps(&self) -> impl '_ + Iterator<Item=usize> {
+        self.deps.iter().copied()
+    }
+    pub fn iter_deps_rvs(&self) -> impl '_ + Iterator<Item=usize> {
+        self.deps_rvs.iter().copied()
+    }
+    pub fn iter_chpj(&self) -> impl '_ + Iterator<Item=usize> {
+        self.chpj.iter().copied()
+    }
+    pub fn iter_chev(&self) -> impl '_ + Iterator<Item=usize> {
+        self.chev.iter().copied()
+    }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[derive(Debug, Deserialize, Serialize, Copy, Clone, Default)]
 pub enum WeightType {
     Flexible,
     #[default]
-    Permanent,
+    Reserved,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -120,7 +158,7 @@ impl PjStore {
     pub fn get_all_names(&self) -> Result<Vec<String>, PjErr> {
         Ok(self.name.iter().map(|(name, _)| name.clone()).collect())
     }
-    pub fn get_by_name(&self, name: &String) -> Option<Pj> {
+    pub fn get_by_name(&self, name: &str) -> Option<Pj> {
         self.name.get(name).map(|x| self.vect[*x].clone()).unwrap_or(None)
     }
     pub fn get_by_id(&self, id: usize) -> Option<Pj> {

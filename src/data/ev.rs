@@ -8,11 +8,32 @@ pub struct Ev {
     name: String,
     time: i64,
     quota_esti: usize,
+    color: (u8, u8, u8)
 }
 
 impl Ev {
     pub fn id(&self) -> usize {
         self.id
+    }
+    pub fn pp(&self) -> usize {
+        self.pp
+    }
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    pub fn quota_esti(&self) -> usize {
+        self.quota_esti
+    }
+    pub fn time(&self) -> i64 {
+        self.time
+    }
+    pub fn color_usize(&self) -> usize {
+        (self.color.0 as usize * 256 * 256) +
+        (self.color.1 as usize * 256) +
+        (self.color.2 as usize)
+    }
+    pub fn color_rgb(&self) -> tui::style::Color {
+        tui::style::Color::Rgb(self.color.0, self.color.1, self.color.2)
     }
 }
 
@@ -65,7 +86,7 @@ impl EvStore {
             }
         }
     }
-    pub fn get_by_name(&self, name: &String) -> Option<Ev> {
+    pub fn get_by_name(&self, name: &str) -> Option<Ev> {
         self.name.get(name).map(|x| self.vect[*x].clone()).unwrap_or(None)
     }
     pub fn get_by_id(&self, id: usize) -> Option<Ev> {
